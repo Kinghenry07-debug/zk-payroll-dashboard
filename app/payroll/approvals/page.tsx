@@ -6,16 +6,23 @@ import { MOCK_PAYROLL_RUNS, MOCK_EMPLOYEES, MOCK_RESERVE_THRESHOLD_EXCEPTIONS } 
 import { PendingPayrollObligationsPanel } from "@/components/features/payroll/PendingPayrollObligationsPanel";
 import { PayrollAdjustmentApprovalExpiryPanel } from "@/components/features/payroll/PayrollAdjustmentApprovalExpiryPanel";
 import { ReserveThresholdExceptionApprovals } from "@/components/features/payroll/ReserveThresholdExceptionApprovals";
+import { clearStaleApprovalProgress } from "@/stores/approvalQueue";
 
 export default function PayrollApprovalsPage() {
-  const pendingRun = MOCK_PAYROLL_RUNS.find((r) => r.status === "pending");
   // Approval progress is tied to the draft version it was granted against.
   // Any draft change invalidates prior approvals so stale progress is never shown.
-  const approvalRuns = MOCK_PAYROLL_RUNS.map((r) =>
-    r.status === "pending" && r.draftChangedSinceApproval === true
-      ? { ...r, approvals: [] }
-      : r
-  );
+  const approvalRuns = MOCK_PAYROLL_RUNS.map((r) => {
+    if (r.status !== "pending" || r.draftChangedSinceApproval !== true) return r;
+    const cleared = clearStaleApprovalProgress(
+      {
+        ...r,
+        approvalStatus: "pending_executive_approval",
+        requiresExecutiveReview: true,
+      } as Parameters<typeof clearStaleApprovalProgress>[0],
+      new Date().toISOString(),
+    );
+    return { ...r, approvals: [], approvalHistory: cleared.approvalHistory };
+  });
   const activePendingRun = approvalRuns.find((r) => r.status === "pending");
 
   return (
